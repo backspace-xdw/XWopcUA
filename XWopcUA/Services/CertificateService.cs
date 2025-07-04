@@ -4,6 +4,7 @@ using System.IO;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Opc.Ua;
+using Opc.Ua.Security.Certificates;
 using XWopcUA.Utils;
 
 namespace XWopcUA.Services
@@ -177,18 +178,24 @@ namespace XWopcUA.Services
                     Directory.CreateDirectory(storePath);
                 }
 
-                var certificate = CertificateFactory.CreateCertificate(
-                    null,
-                    null,
+                var subject = new List<string>
+                {
                     $"CN={applicationName}",
+                    $"O=XWopcUA",
+                    $"DC={System.Net.Dns.GetHostName()}"
+                };
+
+                var certificate = CertificateFactory.CreateCertificate(
                     $"urn:{System.Net.Dns.GetHostName()}:{applicationName}",
-                    null,
-                    DateTime.UtcNow.AddDays(-1),
-                    DateTime.UtcNow.AddMonths(lifetimeInMonths),
-                    keySize,
-                    true,
-                    null,
-                    null);
+                    applicationName,
+                    subject,
+                    new List<string> { Utils.GetHostName(), "localhost", "127.0.0.1" }
+                )
+                .SetNotBefore(DateTime.UtcNow.AddDays(-1))
+                .SetNotAfter(DateTime.UtcNow.AddMonths(lifetimeInMonths))
+                .SetKeySize((ushort)keySize)
+                .SetHashAlgorithm(X509Utils.GetRSAHashAlgorithmName(SecurityPolicies.Basic256Sha256))
+                .CreateForRSA();
 
                 string fileName = $"{applicationName}.der";
                 string filePath = Path.Combine(storePath, fileName);
